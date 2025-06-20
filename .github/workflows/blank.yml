@@ -1,85 +1,186 @@
-name: Check CPU Cores
+name: Check CPU Cores - Standard vs Larger Runners
 
 on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main ]
   workflow_dispatch: # Cho phép chạy thủ công từ GitHub UI
 
 jobs:
-  check-system-info:
+  # Job chạy trên standard runner
+  check-standard-runner:
     runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Check CPU cores and system info
+    - name: Standard Runner - System Info
       run: |
-        echo "=== System Information ==="
-        echo "Runner: ${{ runner.os }}"
-        echo "Runner Architecture: ${{ runner.arch }}"
+        echo "=========================================="
+        echo "🖥️  STANDARD GITHUB RUNNER INFORMATION"
+        echo "=========================================="
+        echo "🏷️  Runner Label: ubuntu-latest"
+        echo "🖱️  Runner OS: ${{ runner.os }}"
+        echo "🏗️  Runner Architecture: ${{ runner.arch }}"
+        echo "📅 Date: $(date)"
         echo ""
         
-        echo "=== CPU Information ==="
-        echo "Number of CPU cores (nproc): $(nproc)"
-        echo "Number of processing units: $(nproc --all)"
+        echo "💻 CPU Information:"
+        echo "   CPU Cores: $(nproc)"
+        echo "   Logical Processors: $(grep "processor" /proc/cpuinfo | wc -l)"
+        echo "   CPU Model: $(grep "model name" /proc/cpuinfo | head -1 | cut -d: -f2 | xargs)"
         echo ""
         
-        echo "=== Detailed CPU info from /proc/cpuinfo ==="
-        echo "Physical CPUs: $(grep "physical id" /proc/cpuinfo | sort -u | wc -l)"
-        echo "CPU cores: $(grep "cpu cores" /proc/cpuinfo | head -1 | cut -d: -f2 | xargs)"
-        echo "Logical processors: $(grep "processor" /proc/cpuinfo | wc -l)"
+        echo "💾 Memory Information:"
+        echo "   Total RAM: $(free -h | grep Mem | awk '{print $2}')"
+        echo "   Available RAM: $(free -h | grep Mem | awk '{print $7}')"
         echo ""
         
-        echo "=== CPU Model ==="
-        grep "model name" /proc/cpuinfo | head -1 | cut -d: -f2 | xargs
+        echo "💿 Storage Information:"
+        df -h / | tail -1 | awk '{print "   Root Disk: " $2 " total, " $4 " available"}'
         echo ""
         
-        echo "=== Memory Information ==="
-        echo "Total RAM: $(free -h | grep Mem | awk '{print $2}')"
-        echo "Available RAM: $(free -h | grep Mem | awk '{print $7}')"
+        echo "⚡ Performance:"
+        echo "   Load Average: $(uptime | cut -d',' -f3-5)"
+        
+  # Job chạy trên larger runner 96-core
+  check-larger-runner:
+    runs-on: runnerMax
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Larger Runner - System Info
+      run: |
+        echo "=========================================="
+        echo "🚀 LARGER GITHUB RUNNER INFORMATION"
+        echo "=========================================="
+        echo "🏷️  Runner Label: runnerMax"
+        echo "🖱️  Runner OS: ${{ runner.os }}"
+        echo "🏗️  Runner Architecture: ${{ runner.arch }}"
+        echo "📅 Date: $(date)"
         echo ""
         
-        echo "=== Disk Space ==="
-        df -h / | tail -1
+        echo "💻 CPU Information:"
+        echo "   CPU Cores: $(nproc)"
+        echo "   All Processing Units: $(nproc --all)"
+        echo "   Physical CPUs: $(grep "physical id" /proc/cpuinfo | sort -u | wc -l)"
+        echo "   CPU cores per socket: $(grep "cpu cores" /proc/cpuinfo | head -1 | cut -d: -f2 | xargs)"
+        echo "   Logical processors: $(grep "processor" /proc/cpuinfo | wc -l)"
+        echo "   CPU Model: $(grep "model name" /proc/cpuinfo | head -1 | cut -d: -f2 | xargs)"
         echo ""
         
-        echo "=== Load Average ==="
-        uptime
-
+        echo "💾 Memory Information:"
+        echo "   Total RAM: $(free -h | grep Mem | awk '{print $2}')"
+        echo "   Available RAM: $(free -h | grep Mem | awk '{print $7}')"
+        echo "   Used RAM: $(free -h | grep Mem | awk '{print $3}')"
+        echo "   RAM in MB: $(free -m | grep Mem | awk '{print $2}')"
+        echo ""
+        
+        echo "💿 Storage Information:"
+        df -h / | tail -1 | awk '{print "   Root Disk: " $2 " total, " $4 " available, " $3 " used"}'
+        echo "   Disk Usage: $(df -h / | tail -1 | awk '{print $5}')"
+        echo ""
+        
+        echo "⚡ Performance Metrics:"
+        echo "   Load Average: $(uptime | cut -d',' -f3-5)"
+        echo "   Uptime: $(uptime -p)"
+        echo ""
+        
+        echo "🔧 Additional Info:"
+        echo "   Kernel: $(uname -r)"
+        echo "   OS Version: $(lsb_release -d | cut -f2)"
+        echo "   Hostname: $(hostname)"
+        
+    - name: Performance Benchmark Test
+      run: |
+        echo "=========================================="
+        echo "🏃‍♂️ PERFORMANCE BENCHMARK"
+        echo "=========================================="
+        
+        # CPU stress test (ngắn)
+        echo "🔥 CPU Stress Test (5 seconds):"
+        timeout 5s dd if=/dev/zero of=/dev/null bs=1M count=1000 2>/dev/null &
+        timeout 5s dd if=/dev/zero of=/dev/null bs=1M count=1000 2>/dev/null &
+        timeout 5s dd if=/dev/zero of=/dev/null bs=1M count=1000 2>/dev/null &
+        timeout 5s dd if=/dev/zero of=/dev/null bs=1M count=1000 2>/dev/null &
+        wait
+        echo "   Load after stress: $(uptime | awk -F'load average:' '{print $2}')"
+        echo ""
+        
+        # Memory test
+        echo "💾 Memory Speed Test:"
+        echo "   Testing memory allocation..."
+        time_result=$(time (dd if=/dev/zero of=/tmp/test_memory bs=1M count=1000 2>/dev/null && rm /tmp/test_memory) 2>&1)
+        echo "   Memory test completed: $time_result"
+        echo ""
+        
+        # Disk I/O test
+        echo "💿 Disk I/O Test:"
+        echo "   Write test (1GB):"
+        sync && time dd if=/dev/zero of=/tmp/test_write bs=1M count=1000 conv=fsync 2>&1 | grep -E "(copied|MB/s)"
+        echo "   Read test:"
+        time dd if=/tmp/test_write of=/dev/null bs=1M 2>&1 | grep -E "(copied|MB/s)"
+        rm -f /tmp/test_write
+        
+    - name: Compare with Standard Runner
+      run: |
+        echo "=========================================="
+        echo "📊 COMPARISON SUMMARY"
+        echo "=========================================="
+        echo "Larger Runner (runnerMax) Specifications:"
+        echo "✅ CPU Cores: $(nproc) cores"
+        echo "✅ RAM: $(free -h | grep Mem | awk '{print $2}')"
+        echo "✅ Storage: $(df -h / | tail -1 | awk '{print $2}')"
+        echo "✅ Expected: 96 cores, 384GB RAM, 2TB SSD"
+        echo ""
+        echo "Standard Runner typical specs:"
+        echo "📋 CPU Cores: ~2-4 cores"
+        echo "📋 RAM: ~7-14GB"
+        echo "📋 Storage: ~14-84GB"
+        
     - name: Set environment variables
       run: |
         echo "CPU_CORES=$(nproc)" >> $GITHUB_ENV
-        echo "TOTAL_RAM=$(free -m | grep Mem | awk '{print $2}')" >> $GITHUB_ENV
+        echo "TOTAL_RAM_MB=$(free -m | grep Mem | awk '{print $2}')" >> $GITHUB_ENV
+        echo "TOTAL_RAM_GB=$(($(free -m | grep Mem | awk '{print $2}') / 1024))" >> $GITHUB_ENV
+        echo "DISK_SIZE=$(df -h / | tail -1 | awk '{print $2}')" >> $GITHUB_ENV
         
-    - name: Display environment variables
+    - name: Create detailed system report
       run: |
-        echo "CPU Cores detected: $CPU_CORES"
-        echo "Total RAM (MB): $TOTAL_RAM"
-        
-    - name: Create system info summary
-      run: |
-        cat << EOF > system_info.txt
-        GitHub Actions Runner System Information
-        ======================================
-        Date: $(date)
+        cat << EOF > larger_runner_report.txt
+        GitHub Actions Larger Runner System Report
+        ==========================================
+        Runner Name: runnerMax
+        Date/Time: $(date)
         Runner OS: ${{ runner.os }}
-        Runner Arch: ${{ runner.arch }}
-        CPU Cores: $(nproc)
-        Logical Processors: $(grep "processor" /proc/cpuinfo | wc -l)
-        CPU Model: $(grep "model name" /proc/cpuinfo | head -1 | cut -d: -f2 | xargs)
-        Total RAM: $(free -h | grep Mem | awk '{print $2}')
-        Available RAM: $(free -h | grep Mem | awk '{print $7}')
-        Disk Space: $(df -h / | tail -1 | awk '{print $2 " total, " $4 " available"}')
+        Runner Architecture: ${{ runner.arch }}
+        
+        Hardware Specifications:
+        - CPU Cores: $(nproc)
+        - Logical Processors: $(grep "processor" /proc/cpuinfo | wc -l)
+        - CPU Model: $(grep "model name" /proc/cpuinfo | head -1 | cut -d: -f2 | xargs)
+        - Total RAM: $(free -h | grep Mem | awk '{print $2}') ($(free -m | grep Mem | awk '{print $2}') MB)
+        - Available RAM: $(free -h | grep Mem | awk '{print $7}')
+        - Root Disk: $(df -h / | tail -1 | awk '{print $2}')
+        - Available Disk: $(df -h / | tail -1 | awk '{print $4}')
+        
+        System Information:
+        - Kernel: $(uname -r)
+        - OS Version: $(lsb_release -d | cut -f2)
+        - Hostname: $(hostname)
+        - Uptime: $(uptime -p)
+        - Load Average: $(uptime | awk -F'load average:' '{print $2}')
+        
+        Expected vs Actual:
+        - Expected: 96 cores, 384GB RAM, 2TB SSD
+        - Actual: $(nproc) cores, $(($(free -m | grep Mem | awk '{print $2}') / 1024))GB RAM, $(df -h / | tail -1 | awk '{print $2}')
         EOF
         
-        echo "=== System Info Summary ==="
-        cat system_info.txt
+        echo "📄 System Report Created:"
+        cat larger_runner_report.txt
         
-    - name: Upload system info as artifact
+    - name: Upload system reports
       uses: actions/upload-artifact@v4
       with:
-        name: system-info-${{ github.run_number }}
-        path: system_info.txt
+        name: larger-runner-report-${{ github.run_number }}
+        path: larger_runner_report.txt
