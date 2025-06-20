@@ -1,0 +1,85 @@
+name: Check CPU Cores
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: # Cho phép chạy thủ công từ GitHub UI
+
+jobs:
+  check-system-info:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Check CPU cores and system info
+      run: |
+        echo "=== System Information ==="
+        echo "Runner: ${{ runner.os }}"
+        echo "Runner Architecture: ${{ runner.arch }}"
+        echo ""
+        
+        echo "=== CPU Information ==="
+        echo "Number of CPU cores (nproc): $(nproc)"
+        echo "Number of processing units: $(nproc --all)"
+        echo ""
+        
+        echo "=== Detailed CPU info from /proc/cpuinfo ==="
+        echo "Physical CPUs: $(grep "physical id" /proc/cpuinfo | sort -u | wc -l)"
+        echo "CPU cores: $(grep "cpu cores" /proc/cpuinfo | head -1 | cut -d: -f2 | xargs)"
+        echo "Logical processors: $(grep "processor" /proc/cpuinfo | wc -l)"
+        echo ""
+        
+        echo "=== CPU Model ==="
+        grep "model name" /proc/cpuinfo | head -1 | cut -d: -f2 | xargs
+        echo ""
+        
+        echo "=== Memory Information ==="
+        echo "Total RAM: $(free -h | grep Mem | awk '{print $2}')"
+        echo "Available RAM: $(free -h | grep Mem | awk '{print $7}')"
+        echo ""
+        
+        echo "=== Disk Space ==="
+        df -h / | tail -1
+        echo ""
+        
+        echo "=== Load Average ==="
+        uptime
+
+    - name: Set environment variables
+      run: |
+        echo "CPU_CORES=$(nproc)" >> $GITHUB_ENV
+        echo "TOTAL_RAM=$(free -m | grep Mem | awk '{print $2}')" >> $GITHUB_ENV
+        
+    - name: Display environment variables
+      run: |
+        echo "CPU Cores detected: $CPU_CORES"
+        echo "Total RAM (MB): $TOTAL_RAM"
+        
+    - name: Create system info summary
+      run: |
+        cat << EOF > system_info.txt
+        GitHub Actions Runner System Information
+        ======================================
+        Date: $(date)
+        Runner OS: ${{ runner.os }}
+        Runner Arch: ${{ runner.arch }}
+        CPU Cores: $(nproc)
+        Logical Processors: $(grep "processor" /proc/cpuinfo | wc -l)
+        CPU Model: $(grep "model name" /proc/cpuinfo | head -1 | cut -d: -f2 | xargs)
+        Total RAM: $(free -h | grep Mem | awk '{print $2}')
+        Available RAM: $(free -h | grep Mem | awk '{print $7}')
+        Disk Space: $(df -h / | tail -1 | awk '{print $2 " total, " $4 " available"}')
+        EOF
+        
+        echo "=== System Info Summary ==="
+        cat system_info.txt
+        
+    - name: Upload system info as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: system-info-${{ github.run_number }}
+        path: system_info.txt
