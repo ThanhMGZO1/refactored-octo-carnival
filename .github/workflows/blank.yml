@@ -43,7 +43,7 @@ jobs:
         
   # Job chạy trên larger runner 96-core
   check-larger-runner:
-    runs-on: runnerMax
+    runs-on: rt1
     
     steps:
     - name: Checkout code
