@@ -6,7 +6,7 @@ jobs:
   run-files:
     runs-on:
       group: group1
-      labels: runnerT1
+      labels: runnerT2
     timeout-minutes: 360
     strategy:
       matrix:
